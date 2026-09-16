@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Day One: The Redemption</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        body {
+            background-color: #0d0e15;
+            color: #e2e8f0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .game-container {
+            background: rgba(26, 27, 38, 0.95);
+            border: 2px solid #38bdf8;
+            border-radius: 16px;
+            width: 100%;
+            max-width: 800px;
+            padding: 2rem;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.6);
+        }
+
+        /* 2D Canvas Screen Area */
+        .canvas-container {
+            position: relative;
+            width: 100%;
+            margin-bottom: 1.5rem;
+            border-radius: 8px;
+            overflow: hidden;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        canvas {
+            display: block;
+            background: #1e1e2e;
+            width: 100%;
+            height: auto;
+        }
+
+        /* Top HUD Dashboard */
+        .hud-bar {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 15px;
+            background: #11121a;
+            padding: 1rem;
+            border-radius: 8px;
+            margin-bottom: 1.5rem;
+            border-bottom: 3px solid #ff0055;
+        }
+
+        .hud-item {
+            text-align: center;
+        }
+
+        .hud-label {
+            font-size: 0.8rem;
+            color: #94a3b8;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .hud-value {
+            font-size: 1.3rem;
+            font-weight: bold;
+            color: #fff;
+            margin-top: 4px;
+        }
+
+        .value-cash { color: #10b981; }
+        .value-bills { color: #f43f5e; }
+
+        /* Story Text Log */
+        .story-box {
+            background: #11121a;
+            padding: 1.2rem;
+            border-radius: 8px;
+            min-height: 100px;
+            margin-bottom: 1.5rem;
+            border-left: 4px solid #38bdf8;
+            font-size: 1rem;
+            line-height: 1.5;
+        }
+
+        /* Interactive Action Grid Buttons */
+        .control-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+        }
+
+        button {
+            background: #2563eb;
+            color: white;
+            border: none;
+            padding: 1rem;
+            font-size: 1rem;
+            font-weight: 600;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2);
+        }
+
+        button:hover {
+            background: #3b82f6;
+            transform: translateY(-2px);
+        }
+
+        button:active {
+            transform: translateY(0);
+        }
+
+        .btn-crime {
+            background: #b91c1c;
+        }
+        .btn-crime:hover {
+            background: #dc2626;
+        }
+
+        .btn-disabled {
+            background: #475569 !important;
+            cursor: not-allowed;
+            transform: none !important;
+            opacity: 0.6;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="game-container">
+        <!-- HUD System -->
+        <div class="hud-bar">
+            <div class="hud-item">
+                <div class="hud-label">Current Cash</div>
+                <div id="stat-cash" class="hud-value value-cash">$0</div>
+            </div>
+            <div class="hud-item">
+                <div class="hud-label">House Bills Due</div>
+                <div id="stat-bills" class="hud-value value-bills">$450</div>
+            </div>
+            <div class="hud-item">
+                <div class="hud-label">Day Segment</div>
+                <div id="stat-day" class="hud-value">Day 1: Motel Room</div>
+            </div>
+        </div>
+
+        <!-- 2D Visual Display Scene -->
+        <div class="canvas-container">
+            <canvas id="gameCanvas" width="700" height="300"></canvas>
+        </div>
+
+        <!-- Dynamic Context Story Prompt -->
+        <div id="story-display" class="story-box">
+            You used to have everything—a perfect corporate job, luxury house, global status. One wild night, too much alcohol, an argument, a gunshot... everything vanished. After serving your sentence, you step out into the cold morning breeze. You wake up inside a cheap roadside motel room. Your bills are stacking up. Time to choose your path.
+        </div>
+
+        <!-- User Click Input Triggers -->
+        <div class="control-grid">
+            <button id="btn-option1" onclick="chooseJob()">💼 Option 1: Apply for Local Job</button>
+            <button id="btn-option2" class="btn-crime" onclick="chooseCarHeist()">🚗 Option 2: Hijack Parked Cars (Easy Money)</button>
+        </div>
+    </div>
+
+    <script>
+        // Setup 2D Canvas Engine Variables
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+
+        // Game Tracking State
+        let cash = 0;
+        let bills = 450;
+        let currentDayStage = "Motel Room";
+
+        // 2D Entity Engine Objects
+        const player = {
+            x: 150,
+            y: 200,
+            radius: 18,
+            color: '#38bdf8',
+            targetX: 150
+        };
+
+        const pitbull = {
+            x: 250,
+            y: 210,
+            width: 32,
+            height: 22,
+            color: '#a1a1aa',
+            direction: 1,
+            speed: 0.8,
+            tailAngle: 0,
+            tailDirection: 1
+        };
+
+        // Static environmental elements rendering inside motel space
+        const assets = {
+            bedX: 40,
+            bedY: 175,
+            doorX: 620
+        };
+
+        // Initialize Animation Loop Engine
+        function gameLoop() {
+            updateLogic();
+            renderGraphics();
+            requestAnimationFrame(gameLoop);
+        }
+
+        function updateLogic() {
+            // Smoothly ease player position toward action targets
+            player.x += (player.targetX - player.x) * 0.05;
+
+            // Make the Pitbull wander and walk naturally around the player
+            pitbull.x += pitbull.speed * pitbull.direction;
+            
+            // Limit animal movement boundaries to keep it close to player view frame
+            if (pitbull.x > player.x + 120) {
+                pitbull.direction = -1;
+            } else if (pitbull.x < player.x - 80 || pitbull.x < 80) {
+                pitbull.direction = 1;
+            }
+
+            // Animate Pitbull wagging tail system logic
+            pitbull.tailAngle += 0.15 * pitbull.tailDirection;
+            if (Math.abs(pitbull.tailAngle) > 0.4) {
+                pitbull.tailDirection *= -1;
+            }
+        }
+
+        function renderGraphics() {
+            // Reset background screen container canvas window elements
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // Draw Background floor floorboards
+            ctx.fillStyle = '#2d2d44';
+            ctx.fillRect(0, 220, canvas.width, canvas.height - 220);
+            ctx.fillStyle = '#1e1e30';
+            ctx.fillRect(0, 0, canvas.width, 220);
+
+            // Draw structural horizon line
+            ctx.strokeStyle = '#4c4c6d';
+            ctx.lineWidth = 4;
+            ctx.beginPath();
+            ctx.moveTo(0, 220);
+            ctx.lineTo(canvas.width, 220);
+            ctx.stroke();
+
+            // Draw Motel Room Assets (Bed Frame Graphic)
+            ctx.fillStyle = '#6e6a86';
+            ctx.fillRect(assets.bedX, assets.bedY, 80, 45);
+            ctx.fillStyle = '#ebbcba'; // Pillow
+            ctx.fillRect(assets.bedX + 5, assets.bedY + 5, 20, 15);
+            ctx.fillStyle = '#31748f'; // Blanket
+            ctx.fillRect(assets.bedX + 25, assets.bedY + 2, 53, 41);
+
+            // Draw Exit Door Frame Interface
+            ctx.fillStyle = '#26233a';
+            ctx.fillRect(assets.doorX, 80, 45, 140);
+            ctx.strokeStyle = '#ebbcba';
+            ctx.strokeRect(assets.doorX, 80, 45, 140);
+            ctx.fillStyle = '#f6c177'; // Golden door handle
+            ctx.beginPath();
+            ctx.arc(assets.doorX + 8, 150, 3, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Draw Player Character Object
+            ctx.fillStyle = player.color;
+            ctx.beginPath();
+            ctx.arc(player.x, player.y, player.radius, 0, Math.PI * 2);
+            ctx.fill();
+            // Draw neat developer neon inner aura glow rings
+            ctx.strokeStyle = '#ffffff';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+
+            // Draw Stunning Companion Pitbull Entity
+            ctx.save();
+            ctx.translate(pitbull.x, pitbull.y);
+            
+            // Flip animal rendering head position orientation based on direction walk vector
+            if (pitbull.direction === -1) {
+                ctx.scale(-1, 1);
+                ctx.translate(-pitbull.width, 0);
+            }
+
+            // Torso Body Frame
+            ctx.fillStyle = pitbull.color;
+            ctx.fillRect(0, 0, pitbull.width, pitbull.height);
+
+            // Sturdy Muscle Head structure
+            ctx.fillRect(pitbull.width - 8, -12, 14, 16);
+            
+            // Detailed pitbull ears visual accent shapes
+            ctx.fillStyle = '#71717a';
+            ctx.beginPath();
+            ctx.moveTo(pitbull.width - 6, -12);
+            ctx.lineTo(pitbull.width - 9, -18);
+            ctx.lineTo(pitbull.width - 2, -12);
+            ctx.fill();
+
+            // Four solid movement leg stands
+            ctx.fillStyle = '#52525b';
